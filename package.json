@@ -1,0 +1,30 @@
+{
+  "name": "three-shadertoy",
+  "version": "1.0.0",
+  "description": "Shadertoy integration for THREE.js",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jangxx/three-shadertoy.git"
+  },
+  "keywords": [
+    "three",
+    "shadertoy",
+    "material"
+  ],
+  "author": "jangxx <jangxx@protonmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/jangxx/three-shadertoy/issues"
+  },
+  "homepage": "https://github.com/jangxx/three-shadertoy#readme",
+  "peerDependencies": {
+    "three": "^0.126.1"
+  },
+  "dependencies": {
+    "axios": "^0.21.1"
+  }
+}
