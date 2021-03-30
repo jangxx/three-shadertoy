@@ -3,6 +3,8 @@ const THREE = require("three");
 const { RenderPass } = require("./RenderPass");
 const { AudioInput } = require("./AudioInput");
 const { TextureInput } = require("./TextureInput");
+const { CubemapInput } = require("./CubemapInput");
+const { VolumeInput } = require("./VolumeInput");
 
 class ShadertoyMaterial extends THREE.MeshBasicMaterial {
     constructor(shaderDefinition, opts = {}) {
@@ -15,13 +17,25 @@ class ShadertoyMaterial extends THREE.MeshBasicMaterial {
 
         this._renderPasses = [];
         this._outputPass = null;
-        this._inputs = {};
+
+        this._audioInputs = [];
+        this._textureInputs = [];
+        this._cubemapInputs = [];
+        this._volumeInputs = [];
+        
         this._clock = new THREE.Clock();
         this._elapsed = 0;
 
         const outputs = {};
+        const inputs = {};
+        let commonShaderCode = "";
         // create renderpass objects
         for (let pass_definition of shaderDefinition.renderpass) {
+            if (pass_definition.type == "common") {
+                commonShaderCode = pass_definition.code;
+                continue;
+            }
+
             const pass = new RenderPass(pass_definition);
             pass.resize(this._width, this._height);
 
@@ -29,6 +43,9 @@ class ShadertoyMaterial extends THREE.MeshBasicMaterial {
                 case "image":
                     this._outputPass = pass;
                     break;
+                case "cubemap":
+                    console.error("CubemapA is not supported yet");
+                    continue;
                 case "buffer":
                     this._renderPasses.push(pass);
                     break;
@@ -38,7 +55,9 @@ class ShadertoyMaterial extends THREE.MeshBasicMaterial {
             }
 
             for (let inputId in pass.inputs) {
-                this._inputs[inputId] = pass.inputs;
+                if (inputId in inputs) continue;
+
+                inputs[inputId] = pass.inputs[inputId];
             }
 
             for (let output of pass.outputs) {
@@ -46,12 +65,46 @@ class ShadertoyMaterial extends THREE.MeshBasicMaterial {
             }
         }
 
-        // TODO: create audioinputs, textureinputs, etc
+        console.log(inputs);
 
-        console.log(outputs);
+        // create output object for all the inputs. they are connected in the next step
+        for (let inputId in inputs) {
+            if (inputId in outputs) continue; // we have already created that output
+
+            const input = inputs[inputId];
+
+            // console.log(input);
+
+            const filter = { "mipmap": THREE.LinearMipMapLinearFilter, "nearest": THREE.NearestFilter, "linear": THREE.LinearFilter }[input.meta.sampler.filter];
+            const wrap = { "repeat": THREE.RepeatWrapping, "clamp": THREE.ClampToEdgeWrapping }[input.meta.sampler.wrap];
+            const yflip = input.meta.sampler.vflip == "true";
+
+            switch(input.type) {
+                case "volume":
+                    outputs[inputId] = new VolumeInput(`https://www.shadertoy.com${input.meta.src}`, filter, wrap);
+                    this._volumeInputs.push(outputs[inputId]);
+                    break;
+                case "cubemap":
+                    outputs[inputId] = new CubemapInput(`https://www.shadertoy.com${input.meta.src}`, filter, wrap, yflip);
+                    this._cubemapInputs.push(outputs[inputId]);
+                    break;
+                case "texture":
+                    outputs[inputId] = new TextureInput(`https://www.shadertoy.com${input.meta.src}`, filter, wrap, yflip);
+                    this._textureInputs.push(outputs[inputId]);
+                    break;
+                case "audio":
+                    outputs[inputId] = new AudioInput(filter, wrap);
+                    this._audioInputs.push(outputs[inputId]);
+                    break;
+                case "buffer":
+                    continue; // do nothing, since this will be added further down
+            }
+        }
 
         // connect the pass outputs to the inputs
         for (let pass of this._renderPasses.concat([ this._outputPass ])) {
+            pass.addCommonShader(commonShaderCode);
+
             for (let inputId in pass.inputs) {
                 const inp = pass.inputs[inputId];
 
@@ -60,7 +113,7 @@ class ShadertoyMaterial extends THREE.MeshBasicMaterial {
                     continue;
                 }
 
-                pass.connectInputChannel(inp.meta.channel, outputs[inp.id].outputTexture);
+                pass.connectInputChannel(inp.meta.channel, outputs[inp.id]);
             }
         }
 
@@ -81,6 +134,22 @@ class ShadertoyMaterial extends THREE.MeshBasicMaterial {
 
     get height() {
         return this._height;
+    }
+
+    get audioInputs() {
+        return this._audioInputs;
+    }
+
+    get textureInputs() {
+        return this._textureInputs;
+    }
+
+    get cubemapInputs() {
+        return this._cubemapInputs;
+    }
+
+    get volumeInputs() {
+        return this._volumeInputs;
     }
 
     resize(width, height) {
@@ -117,6 +186,19 @@ class ShadertoyMaterial extends THREE.MeshBasicMaterial {
             mouseR: false,
             date: new Date(),
         };
+
+        for (let audioInput of this._audioInputs) {
+            audioInput.update(this._elapsed);
+        }
+        for (let textureInput of this._textureInputs) {
+            textureInput.update(this._elapsed);
+        }
+        for (let cubemapInput of this._cubemapInputs) {
+            cubemapInput.update(this._elapsed);
+        }
+        for (let volumeInput of this._volumeInputs) {
+            volumeInput.update(this._elapsed);
+        }
 
         for (let pass of this._renderPasses) {
             pass.update(updateValues);

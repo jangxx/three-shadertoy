@@ -1,5 +1,6 @@
 const THREE = require("three");
-const { vertexShader } = require("./shaders");
+const { vertexShader } = require("./assets");
+const { ShaderPassInput } = require("./ShaderPassInput");
 
 /**
  * shadertoy types:
@@ -26,15 +27,19 @@ class PassInterface {
     }
 }
 
-class RenderPass {
+class RenderPass extends ShaderPassInput {
     constructor(definition) {
+        super();
+
         this._inputs = {};
         this._outputs = [];
+        this._channelInputs = {};
 
         for(let input of definition.inputs) {
             let type = null;
 
             switch (input.ctype) {
+                case "webcam": // webcam image is just turned into a static texture for now
                 case "texture":
                     type = "texture";
                     break;
@@ -53,7 +58,6 @@ class RenderPass {
                     type = "buffer";
                     break;
                 case "keyboard":
-                case "webcam":
                 default:
                     continue; // not supported
             }
@@ -66,9 +70,8 @@ class RenderPass {
         }
 
         this._code = definition.code;
-        this._type = definition.type;
+        this.type = definition.type;
 
-        this._scene = new THREE.Scene();
         this._camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 2);
         this._camera.position.set(0, 0, 1);
 
@@ -98,7 +101,7 @@ class RenderPass {
                     gl_type = "sampler2D";
                     break;
                 case "volume":
-                    gl_type = "sampler3D";
+                    gl_type = "mediump sampler3D";
                     break;
                 case "cubemap":
                     gl_type = "samplerCube";
@@ -133,14 +136,15 @@ class RenderPass {
 
                     mainImage(gl_FragColor, fragCoord);
                 }
-            ` + this._code,
+            `, // preliminary header of the shader
             uniforms,
         });
+        this._shaderMaterialFinished = false;
 
-        this._scene.add(new THREE.Mesh(
+        this._scene = new THREE.Mesh(
             new THREE.PlaneGeometry(2, 2),
             this._material
-        ));
+        );
 
         this._renderTarget = new THREE.WebGLRenderTarget(512, 512, {
 			minFilter: THREE.LinearFilter,
@@ -150,12 +154,10 @@ class RenderPass {
         this._renderTarget.texture.name = "RenderPass";
 
         if (this.type == "buffer") { // create double buffered output
-            this._doubleBufferScene = new THREE.Scene();
-            
-            this._doubleBufferScene.add(new THREE.Mesh(
+            this._doubleBufferScene = new THREE.Mesh(
                 new THREE.PlaneGeometry(2, 2),
                 new THREE.MeshBasicMaterial({ map: this._renderTarget.texture })
-            ));
+            );
             this._doubleBufferRenderTarget = new THREE.WebGLRenderTarget(512, 512, {
                 minFilter: THREE.LinearFilter,
                 magFilter: THREE.LinearFilter,
@@ -173,8 +175,12 @@ class RenderPass {
         }
     }
 
-    get type() {
-        return this._type;
+    get outputSize() {
+        return new THREE.Vector3(this._renderTarget.width, this._renderTarget.height, 1);
+    }
+
+    get outputTime() {
+        return this._material.uniforms.iTime.value;
     }
 
     get inputs() {
@@ -197,12 +203,20 @@ class RenderPass {
         this._material.uniforms.iResolution.value = new THREE.Vector3(width, height, 1);
     }
 
+    addCommonShader(code) {
+        this._material.fragmentShader += code;
+    }
+
     /**
      * 
      * @param {THREE.WebGLRenderer} renderer 
      */
     render(renderer) {
-        
+        if (!this._shaderMaterialFinished) {
+            this._material.fragmentShader += this._code;
+            this._shaderMaterialFinished = true;
+        }
+
         this._material.uniforms.iFrame.value = this._frame++;
 
         // console.log(this._frame);
@@ -220,17 +234,20 @@ class RenderPass {
     update(values) {
         this._material.uniforms.iTimeDelta.value = values.delta;
         this._material.uniforms.iTime.value = values.time;
-        this._material.uniforms.iChannelTime.value[0] = values.time;
-        this._material.uniforms.iChannelTime.value[1] = values.time;
-        this._material.uniforms.iChannelTime.value[2] = values.time;
-        this._material.uniforms.iChannelTime.value[3] = values.time;
+
+        const empty = new THREE.Vector3();
+        for (let i = 0; i < 4; i++) {
+            this._material.uniforms.iChannelTime.value[i] = values.time;
+            this._material.uniforms.iChannelResolution.value[i] = (i in this._channelInputs) ? this._channelInputs[i].outputTime : empty;
+        }
 
         this._material.uniforms.iMouse.value.set(values.mouseX, values.mouseY, values.mouseL ? 1 : 0, values.mouseR ? 1 : 0);
         this._material.uniforms.iDate.value.set(values.date.getFullYear(), values.date.getMonth() + 1, values.date.getDate(), values.date.getHours() * 60*60 + values.date.getMinutes() * 60 + values.date.getSeconds());
     }
 
-    connectInputChannel(channel, texture) {
-        this._material.uniforms[`iChannel${channel}`].value = texture;
+    connectInputChannel(channel, input) {
+        this._material.uniforms[`iChannel${channel}`].value = input.outputTexture;
+        this._channelInputs[channel] = input;
     }
 }
 
