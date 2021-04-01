@@ -35,9 +35,13 @@ class AudioInput extends ShaderPassInput {
         this._dataTexture.needsUpdate = true;
     }
 
-    updateData(audioFreqData, timeDomainData) {
-        this._frequencyData = audioFreqData;
-        this._timeDomainData = timeDomainData;
+    updateData(audioFreqData = null, timeDomainData = null) {
+        if (audioFreqData != null) {
+            this._frequencyData = audioFreqData;
+        }
+        if (timeDomainData != null) {
+            this._timeDomainData = timeDomainData;
+        }
 
         this._textureData.set(this._frequencyData, 0);
         this._textureData.set(this._timeDomainData, 512);

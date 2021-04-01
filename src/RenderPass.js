@@ -91,6 +91,8 @@ class RenderPass extends ShaderPassInput {
 
         let uniformString = "";
 
+        const channelOccupied = new Array(4).fill(false);
+
         for (let inputId in this._inputs) {
             let gl_type = null;
 
@@ -108,14 +110,24 @@ class RenderPass extends ShaderPassInput {
                     break;
             }
 
+            channelOccupied[this._inputs[inputId].meta.channel] = true;
             uniforms[`iChannel${this._inputs[inputId].meta.channel}`] = { type: gl_type, value: null };
             uniformString += `uniform ${gl_type} iChannel${this._inputs[inputId].meta.channel}; `;
+        }
+
+        // fill the rest of the channels with dummy sampler2D uniforms
+        for (let i in channelOccupied) {
+            if (!channelOccupied[i]) {
+                uniforms[`iChannel${i}`] = { type: "sampler2D", value: null };
+                uniformString += `uniform sampler2D iChannel${i}; `;
+            }
         }
 
         this._material = new THREE.ShaderMaterial({
             vertexShader,
             fragmentShader: `
                 varying vec2 _three_shadertoy_vertexUV;
+                uniform float opacity;
 
                 uniform vec3      iResolution;           // viewport resolution (in pixels)
                 uniform float     iTime;                 // shader playback time (in seconds)
@@ -193,6 +205,9 @@ class RenderPass extends ShaderPassInput {
 
     dispose() {
         this._renderTarget.dispose();
+        if (this._doubleBufferRenderTarget) {
+            this._doubleBufferRenderTarget.dispose();
+        }
     }
 
     resize(width, height) {

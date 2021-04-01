@@ -15,6 +15,8 @@ class ShadertoyMaterial extends THREE.MeshBasicMaterial {
         this._width = ("width" in opts) ? opts.width : 512;
         this._height = ("height" in opts) ? opts.height : 512;
 
+        this.name = "ShadertoyMaterial";
+
         this._renderPasses = [];
         this._outputPass = null;
 
@@ -65,7 +67,7 @@ class ShadertoyMaterial extends THREE.MeshBasicMaterial {
             }
         }
 
-        console.log(inputs);
+        // console.log(inputs);
 
         // create output object for all the inputs. they are connected in the next step
         for (let inputId in inputs) {
@@ -204,6 +206,15 @@ class ShadertoyMaterial extends THREE.MeshBasicMaterial {
             pass.update(updateValues);
         }
         this._outputPass.update(updateValues);
+    }
+
+    dispose() {
+        for (let pass of this._renderPasses) {
+            pass.dispose();
+        }
+        if (this._outputPass !== null) {
+            this._outputPass.dispose();
+        }
     }
 }
 
