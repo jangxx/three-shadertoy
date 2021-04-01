@@ -3,8 +3,8 @@ const { ShaderPassInput } = require("./ShaderPassInput");
 const { notSupportedImage } = require("./assets");
 
 class CubemapInput extends ShaderPassInput {
-    constructor(url, filter, wrap, yflip) {
-        super();
+    constructor(ctype, url, filter, wrap, yflip) {
+        super("cubemap", ctype);
 
         this.wantURL = url;
 
@@ -19,7 +19,9 @@ class CubemapInput extends ShaderPassInput {
         return this._texture;
     }
 
-    get outputSize() { throw new Error("Not implemented"); }
+    get outputSize() {
+        return new THREE.Vector3(this._texture.images[0].width, this._texture.images[0].height, 1);
+    }
 
     get outputTime() {
         return 0;

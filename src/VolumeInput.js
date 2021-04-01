@@ -2,12 +2,12 @@ const THREE = require("three");
 const { ShaderPassInput } = require("./ShaderPassInput");
 
 class VolumeInput extends ShaderPassInput {
-    constructor(url, filter, wrap) {
-        super();
+    constructor(ctype, url, filter, wrap) {
+        super("volume", ctype);
 
         this.wantURL = url;
 
-        this._texture = new THREE.DataTexture3D(new Uint8Array(1), 1, 1, 1);
+        this._texture = new THREE.DataTexture3D(new Uint8Array(4), 1, 1, 1);
         this._texture.wrapS = wrap;
         this._texture.wrapT = wrap;
         this._texture.wrapR = wrap;

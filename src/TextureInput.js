@@ -3,8 +3,8 @@ const { ShaderPassInput } = require("./ShaderPassInput");
 const { notSupportedImage } = require("./assets");
 
 class TextureInput extends ShaderPassInput {
-    constructor(url, filter, wrap, yflip) {
-        super();
+    constructor(ctype, url, filter, wrap, yflip) {
+        super("texture", ctype);
 
         this.wantURL = url;
 
@@ -13,6 +13,9 @@ class TextureInput extends ShaderPassInput {
         this._texture.wrapT = wrap;
         this._texture.minFilter = filter;
         this._texture.flipY = yflip;
+
+        this._width = 512;
+        this._height = 512;
     }
 
     get outputTexture() {
@@ -20,8 +23,7 @@ class TextureInput extends ShaderPassInput {
     }
 
     get outputSize() {
-        // return new THREE.Vector2(this._renderTarget.width, this._renderTarget.height);
-        throw new Error("not implemented");
+        return new THREE.Vector3(this._width, this._height, 1);
     }
 
     get outputTime() {
@@ -34,6 +36,9 @@ class TextureInput extends ShaderPassInput {
         const loader = new THREE.ImageLoader();
         
         return loader.loadAsync(url).then(image => {
+            this._width = image.width;
+            this._height = image.height;
+
             this._texture.image = image;
             this._texture.needsUpdate = true;
         });

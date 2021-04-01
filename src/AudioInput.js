@@ -2,8 +2,8 @@ const THREE = require("three");
 const { ShaderPassInput } = require("./ShaderPassInput");
 
 class AudioInput extends ShaderPassInput {
-    constructor(filter, wrap) {
-        super();
+    constructor(ctype, filter, wrap) {
+        super("audio", ctype);
 
         this._time = 0;
 

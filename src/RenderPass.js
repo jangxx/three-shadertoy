@@ -29,7 +29,7 @@ class PassInterface {
 
 class RenderPass extends ShaderPassInput {
     constructor(definition) {
-        super();
+        super(definition.type, "renderpass");
 
         this._inputs = {};
         this._outputs = [];
@@ -39,7 +39,10 @@ class RenderPass extends ShaderPassInput {
             let type = null;
 
             switch (input.ctype) {
-                case "webcam": // webcam image is just turned into a static texture for now
+                case "webcam": // webcam image is just turned into a video texture for now
+                case "video":
+                    type = "video";
+                    break;
                 case "texture":
                     type = "texture";
                     break;
@@ -70,7 +73,6 @@ class RenderPass extends ShaderPassInput {
         }
 
         this._code = definition.code;
-        this.type = definition.type;
 
         this._camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 2);
         this._camera.position.set(0, 0, 1);
@@ -100,6 +102,7 @@ class RenderPass extends ShaderPassInput {
                 case "texture":
                 case "audio":
                 case "buffer":
+                case "video":
                     gl_type = "sampler2D";
                     break;
                 case "volume":
@@ -219,7 +222,7 @@ class RenderPass extends ShaderPassInput {
     }
 
     addCommonShader(code) {
-        this._material.fragmentShader += code;
+        this._material.fragmentShader += code + "\n";
     }
 
     /**
@@ -227,6 +230,7 @@ class RenderPass extends ShaderPassInput {
      * @param {THREE.WebGLRenderer} renderer 
      */
     render(renderer) {
+        // assume that the common code is added by this point and finish the shader on the first render attempt
         if (!this._shaderMaterialFinished) {
             this._material.fragmentShader += this._code;
             this._shaderMaterialFinished = true;
@@ -253,7 +257,7 @@ class RenderPass extends ShaderPassInput {
         const empty = new THREE.Vector3();
         for (let i = 0; i < 4; i++) {
             this._material.uniforms.iChannelTime.value[i] = values.time;
-            this._material.uniforms.iChannelResolution.value[i] = (i in this._channelInputs) ? this._channelInputs[i].outputTime : empty;
+            this._material.uniforms.iChannelResolution.value[i] = (i in this._channelInputs) ? this._channelInputs[i].outputSize : empty;
         }
 
         this._material.uniforms.iMouse.value.set(values.mouseX, values.mouseY, values.mouseL ? 1 : 0, values.mouseR ? 1 : 0);

@@ -5,6 +5,7 @@ const { AudioInput } = require("./AudioInput");
 const { TextureInput } = require("./TextureInput");
 const { CubemapInput } = require("./CubemapInput");
 const { VolumeInput } = require("./VolumeInput");
+const { VideoInput } = require("./VideoInput");
 
 class ShadertoyMaterial extends THREE.MeshBasicMaterial {
     constructor(shaderDefinition, opts = {}) {
@@ -24,7 +25,8 @@ class ShadertoyMaterial extends THREE.MeshBasicMaterial {
         this._textureInputs = [];
         this._cubemapInputs = [];
         this._volumeInputs = [];
-        
+        this._videoInputs = [];
+
         this._clock = new THREE.Clock();
         this._elapsed = 0;
 
@@ -83,20 +85,24 @@ class ShadertoyMaterial extends THREE.MeshBasicMaterial {
 
             switch(input.type) {
                 case "volume":
-                    outputs[inputId] = new VolumeInput(`https://www.shadertoy.com${input.meta.src}`, filter, wrap);
+                    outputs[inputId] = new VolumeInput(input.meta.ctype, `https://www.shadertoy.com${input.meta.src}`, filter, wrap);
                     this._volumeInputs.push(outputs[inputId]);
                     break;
                 case "cubemap":
-                    outputs[inputId] = new CubemapInput(`https://www.shadertoy.com${input.meta.src}`, filter, wrap, yflip);
+                    outputs[inputId] = new CubemapInput(input.meta.ctype,`https://www.shadertoy.com${input.meta.src}`, filter, wrap, yflip);
                     this._cubemapInputs.push(outputs[inputId]);
                     break;
                 case "texture":
-                    outputs[inputId] = new TextureInput(`https://www.shadertoy.com${input.meta.src}`, filter, wrap, yflip);
+                    outputs[inputId] = new TextureInput(input.meta.ctype,`https://www.shadertoy.com${input.meta.src}`, filter, wrap, yflip);
                     this._textureInputs.push(outputs[inputId]);
                     break;
                 case "audio":
-                    outputs[inputId] = new AudioInput(filter, wrap);
+                    outputs[inputId] = new AudioInput(input.meta.ctype, filter, wrap);
                     this._audioInputs.push(outputs[inputId]);
+                    break;
+                case "video":
+                    outputs[inputId] = new VideoInput(input.meta.ctype, `https://www.shadertoy.com${input.meta.src}`, filter, wrap, yflip);
+                    this._videoInputs.push(outputs[inputId]);
                     break;
                 case "buffer":
                     continue; // do nothing, since this will be added further down
@@ -154,6 +160,14 @@ class ShadertoyMaterial extends THREE.MeshBasicMaterial {
         return this._volumeInputs;
     }
 
+    get videoInputs() {
+        return this._videoInputs;
+    }
+
+    get allInputs() {
+        return [].concat(this.audioInputs, this.textureInputs, this.cubemapInputs, this.volumeInputs, this.videoInputs);
+    }
+
     resize(width, height) {
         for (let pass of this._renderPasses) {
             pass.resize(width, height);
@@ -200,6 +214,9 @@ class ShadertoyMaterial extends THREE.MeshBasicMaterial {
         }
         for (let volumeInput of this._volumeInputs) {
             volumeInput.update(this._elapsed);
+        }
+        for (let videoInput of this._videoInputs) {
+            videoInput.update(this._elapsed);
         }
 
         for (let pass of this._renderPasses) {
